@@ -5,5 +5,5 @@ pub mod query;
 
 pub use client::{ApiClient, ApiResult};
 pub use error::ApiClientError;
-pub use auth::{AuthStrategy, ApiKeyAuth, BearerAuth};
+pub use auth::{AuthStrategy, HeaderAuth, BearerAuth};
 

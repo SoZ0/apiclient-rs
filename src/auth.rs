@@ -10,26 +10,27 @@ impl Debug for dyn AuthStrategy {
     }
 }
 
-pub struct ApiKeyAuth {
+pub struct HeaderAuth {
+    header: String,
     api_key: String,
 }
 
-impl ApiKeyAuth {
-    pub fn new(api_key: String) -> Self {
-        ApiKeyAuth { api_key }
+impl HeaderAuth {
+    pub fn new(header:String, api_key: String) -> Self {
+        HeaderAuth { header, api_key }
     }
 }
 
-impl AuthStrategy for ApiKeyAuth {
+impl AuthStrategy for HeaderAuth {
     fn apply_auth(&self, request: RequestBuilder) -> RequestBuilder {
-        request.header("x-api-key", &self.api_key)
+        request.header(&self.header, &self.api_key)
     }
 }
 
-impl Debug for ApiKeyAuth {
+impl Debug for HeaderAuth {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("ApiKeyAuth")
-            .field("api_key", &"***") // Don't expose the actual key
+        f.debug_struct("HeaderAuth")
+            .field(&self.header, &"***") // Don't expose the actual key
             .finish()
     }
 }
