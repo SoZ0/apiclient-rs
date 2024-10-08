@@ -1,6 +1,7 @@
 use reqwest::{Client as ReqwestClient, RequestBuilder, Response, StatusCode};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde_json::Value;
 use crate::error::ApiClientError;
 use crate::auth::AuthStrategy;
 use tracing::{info, debug, error, instrument};
@@ -34,7 +35,7 @@ impl ApiClient {
     }
 
     #[instrument(skip(self))]
-    pub async fn get<T>(&self, endpoint: &str, params: Option<&[(&str, &str)]>) -> ApiResult<T>
+    pub async fn get<T>(&self, endpoint: &str, params: Option<&[(String, String)]>) -> ApiResult<T>
     where
         T: DeserializeOwned,
     {
@@ -136,5 +137,51 @@ impl ApiClient {
         } else {
             Err(ApiClientError::ApiError { status, body })
         }
+    }
+
+    pub fn serialize_params<B>(&self, params: Option<&B>) -> ApiResult<Option<Vec<(String, String)>>>
+    where
+        B: Serialize,
+    {
+
+        fn convert_json_to_pairs(json_string: &str) -> Result<Vec<(String, String)>, ApiClientError> {
+            let value: Value = serde_json::from_str(json_string)?;
+            let mut pairs: Vec<(String, String)> = Vec::new();
+        
+            if let Value::Object(map) = value {
+                for (key, value) in map.iter() {
+                    let key_str = key.clone();
+                    let value_str = match value {
+                        Value::String(s) => s.clone(),
+                        Value::Bool(b) => b.to_string(),
+                        Value::Number(n) => n.to_string(),
+                        _ => continue,
+                    };
+                    pairs.push((key_str, value_str));
+                }
+            }
+        
+            Ok(pairs)
+        }
+
+        if let Some(params) = params {
+            let json_string = serde_json::to_string(params)?;
+            let pairs = convert_json_to_pairs(&json_string)?;
+            Ok(Some(pairs))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn deserialize_response<T>(&self, response: Value) -> ApiResult<T>
+    where
+        T: DeserializeOwned,
+    {
+        let result = serde_path_to_error::deserialize::<_, T>(response);
+        result.map_err(|err| {
+            let path = err.path().to_string();
+            error!("Deserialization error at {}: {}", path, err);
+            ApiClientError::DeserializeError(err.to_string())
+        })
     }
 }
